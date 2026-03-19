@@ -3,7 +3,10 @@ import json
 import base64
 import librosa
 import librosa.display
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend, no font cache issues
 import matplotlib.pyplot as plt
+matplotlib.rcParams['font.family'] = 'DejaVu Sans'  # ASCII-safe font
 import numpy as np
 import soundfile as sf
 import requests
