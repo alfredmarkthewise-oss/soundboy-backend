@@ -1,0 +1,34 @@
+{
+    "subtractive_eq": [
+        {
+            "target_frequency_hz": 250,
+            "q_factor": 1.5,
+            "gain_db": -3.5,
+            "reason": "Visible mud and energy buildup in the low-mids on the spectrogram."
+        },
+        {
+            "target_frequency_hz": 4000,
+            "q_factor": 3.0,
+            "gain_db": -2.0,
+            "reason": "Harsh resonance detected in the upper midrange."
+        }
+    ],
+    "dynamics": {
+        "compressor": {
+            "threshold_db": -18,
+            "ratio": "4:1",
+            "attack_ms": 15,
+            "release_ms": 80,
+            "makeup_gain_db": 2.5,
+            "intent": "Catch transient peaks while maintaining natural dynamic range."
+        }
+    },
+    "spatial_effects": {
+        "delay": {
+            "time_ms": 20,
+            "feedback": 0,
+            "mix_percentage": 15,
+            "intent": "Applying the Haas effect to create real presence without washing out the signal."
+        }
+    }
+}
