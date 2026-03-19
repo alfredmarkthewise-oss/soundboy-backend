@@ -46,8 +46,13 @@ async def mix_audio(file: UploadFile = File(...)):
     Accepts a .wav file, runs the full AI mixing pipeline,
     returns the processed .wav file as a download.
     """
-    # Validate API key
-    api_key = os.environ.get("OPENAI_API_KEY")
+    # Validate API key — check multiple possible secret names
+    api_key = (
+        os.environ.get("OPENAI_API_KEY") or
+        os.environ.get("Open_AI_Key") or
+        os.environ.get("OPEN_AI_KEY") or
+        os.environ.get("openai_api_key")
+    )
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured on server")
 
