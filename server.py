@@ -79,8 +79,8 @@ async def mix_audio(file: UploadFile = File(...)):
         mix_instructions = mixer._consult_ai_agent()
 
         # Save mix decisions for the frontend
-        with open(decisions_path, "w") as f:
-            json.dump(mix_instructions, f, indent=2)
+        with open(decisions_path, "w", encoding="utf-8") as f:
+            json.dump(mix_instructions, f, indent=2, ensure_ascii=False)
 
         # Store in memory for GET endpoint
         mix_data_store[file.filename] = mix_instructions
@@ -117,7 +117,7 @@ def get_mix_data(filename: str):
     # Try from disk
     decisions_path = OUTPUT_DIR / f"decisions_{filename}.json"
     if decisions_path.exists():
-        with open(decisions_path) as f:
+        with open(decisions_path, encoding="utf-8") as f:
             return JSONResponse(content=json.load(f))
 
     raise HTTPException(status_code=404, detail="No mix data found for this file")
