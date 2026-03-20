@@ -95,11 +95,16 @@ async def mix_audio(file: UploadFile = File(...)):
         if os.path.exists("temp_spectrogram.png"):
             os.remove("temp_spectrogram.png")
 
-        return FileResponse(
-            path=str(output_path),
-            media_type="audio/wav",
-            filename=f"AI_Mixed_{file.filename}",
-        )
+        # Return both audio and decisions
+        import base64 as b64mod
+        with open(str(output_path), "rb") as af:
+            audio_b64 = b64mod.b64encode(af.read()).decode("ascii")
+
+        return JSONResponse(content={
+            "audio_base64": audio_b64,
+            "mixing_decisions": mix_instructions,
+            "filename": f"AI_Mixed_{file.filename}",
+        })
 
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=500, detail=f"AI returned invalid JSON: {e}")
