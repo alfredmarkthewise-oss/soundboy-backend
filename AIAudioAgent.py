@@ -153,12 +153,16 @@ Adjust the values based on what you see in the spectrogram. Return ONLY the JSON
         if "spatial_effects" in mix_instructions and "delay" in mix_instructions["spatial_effects"]:
             delay = mix_instructions["spatial_effects"]["delay"]
             # Normalize mix_percentage: API may send 0-100 or 0-1
-            mix_pct = delay.get("mix_percentage", 15)
-            mix_val = mix_pct / 100.0 if mix_pct > 1 else mix_pct
+            mix_pct = float(delay.get("mix_percentage", 15))
+            mix_val = mix_pct / 100.0 if mix_pct > 1.0 else mix_pct
+            # Normalize feedback: clamp to 0.0-1.0, handle percentages
+            fb = float(delay.get("feedback", 0.0))
+            fb = fb / 100.0 if fb > 1.0 else fb
+            fb = max(0.0, min(1.0, fb))
             plugins.append(Delay(
-                delay_seconds=delay["time_ms"] / 1000.0,
-                feedback=delay.get("feedback", 0.0),
-                mix=mix_val
+                delay_seconds=max(0.001, float(delay.get("time_ms", 20)) / 1000.0),
+                feedback=fb,
+                mix=max(0.0, min(1.0, mix_val))
             ))
 
         # Build and run the virtual console
