@@ -1,15 +1,15 @@
 import os
 import json
 import base64
+import tempfile
+import subprocess
 import librosa
 import librosa.display
-import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend, no font cache issues
 import matplotlib.pyplot as plt
-matplotlib.rcParams['font.family'] = 'DejaVu Sans'  # ASCII-safe font
 import numpy as np
 import soundfile as sf
 import requests
+from pathlib import Path
 from pedalboard import Pedalboard, Compressor, PeakFilter, Delay
 
 class AutonomousMixer:
@@ -23,9 +23,48 @@ class AutonomousMixer:
         }
         self.spectrogram_path = "temp_spectrogram.png"
 
+    def _convert_to_wav_if_needed(self, audio_path: str) -> tuple[str, bool]:
+        """
+        If the file is .mp3 or .flac, convert to a temp WAV using ffmpeg.
+        Returns (path_to_use, was_converted). Caller must delete temp file if was_converted.
+        """
+        ext = Path(audio_path).suffix.lower()
+        if ext not in (".mp3", ".flac"):
+            return audio_path, False
+
+        tmp_wav = tempfile.mktemp(suffix=".wav")
+        try:
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-i", audio_path, "-ar", "48000", "-ac", "1", tmp_wav],
+                capture_output=True, text=True, timeout=120
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"ffmpeg conversion failed: {result.stderr}")
+            return tmp_wav, True
+        except FileNotFoundError:
+            # ffmpeg not available — try pydub
+            try:
+                from pydub import AudioSegment
+                if ext == ".mp3":
+                    seg = AudioSegment.from_mp3(audio_path)
+                else:
+                    seg = AudioSegment.from_file(audio_path, format="flac")
+                seg = seg.set_frame_rate(48000).set_channels(1)
+                seg.export(tmp_wav, format="wav")
+                return tmp_wav, True
+            except ImportError:
+                raise RuntimeError(
+                    "Cannot decode MP3/FLAC: neither ffmpeg nor pydub is available on this server."
+                )
+
     def _generate_spectrogram(self, audio_path):
         print("1. Extracting acoustic data and generating Mel-spectrogram...")
-        y, sr = librosa.load(audio_path, sr=48000)
+        wav_path, was_converted = self._convert_to_wav_if_needed(audio_path)
+        try:
+            y, sr = librosa.load(wav_path, sr=48000)
+        finally:
+            if was_converted and os.path.exists(wav_path):
+                os.remove(wav_path)
 
         # Calculate the math: STFT to Mel Scale
         mel_spectrogram = librosa.feature.melspectrogram(y=y, sr=sr, n_fft=2048, hop_length=512, n_mels=128)
@@ -153,16 +192,12 @@ Adjust the values based on what you see in the spectrogram. Return ONLY the JSON
         if "spatial_effects" in mix_instructions and "delay" in mix_instructions["spatial_effects"]:
             delay = mix_instructions["spatial_effects"]["delay"]
             # Normalize mix_percentage: API may send 0-100 or 0-1
-            mix_pct = float(delay.get("mix_percentage", 15))
-            mix_val = mix_pct / 100.0 if mix_pct > 1.0 else mix_pct
-            # Normalize feedback: clamp to 0.0-1.0, handle percentages
-            fb = float(delay.get("feedback", 0.0))
-            fb = fb / 100.0 if fb > 1.0 else fb
-            fb = max(0.0, min(1.0, fb))
+            mix_pct = delay.get("mix_percentage", 15)
+            mix_val = mix_pct / 100.0 if mix_pct > 1 else mix_pct
             plugins.append(Delay(
-                delay_seconds=max(0.001, float(delay.get("time_ms", 20)) / 1000.0),
-                feedback=fb,
-                mix=max(0.0, min(1.0, mix_val))
+                delay_seconds=delay["time_ms"] / 1000.0,
+                feedback=delay.get("feedback", 0.0),
+                mix=mix_val
             ))
 
         # Build and run the virtual console
