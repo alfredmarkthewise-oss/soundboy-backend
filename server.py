@@ -56,13 +56,16 @@ async def mix_audio(file: UploadFile = File(...)):
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured on server")
 
-    if not file.filename or not file.filename.endswith(".wav"):
-        raise HTTPException(status_code=400, detail="Only .wav files are supported")
+    SUPPORTED = (".wav", ".mp3", ".flac")
+    if not file.filename or not any(file.filename.lower().endswith(ext) for ext in SUPPORTED):
+        raise HTTPException(status_code=400, detail="Only .wav, .mp3, and .flac files are supported")
 
     # Save upload to temp
-    input_path = OUTPUT_DIR / f"input_{file.filename}"
-    output_path = OUTPUT_DIR / f"mixed_{file.filename}"
-    decisions_path = OUTPUT_DIR / f"decisions_{file.filename}.json"
+    # Always save input with original extension, output as wav
+    safe_name = file.filename.replace(" ", "_")
+    input_path = OUTPUT_DIR / f"input_{safe_name}"
+    output_path = OUTPUT_DIR / f"mixed_{safe_name}.wav"
+    decisions_path = OUTPUT_DIR / f"decisions_{safe_name}.json"
 
     try:
         # Write uploaded file
